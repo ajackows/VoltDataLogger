@@ -1,9 +1,10 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+//#include "ADCdriver.c"
 
 
 #define VERBOSE
-// #define DEBUG
+//#define DEBUG
 
 #define VOLTREAD A0
 #define ADCMAXLVL 5.102 //needs to be measured from 5v line of arduino
@@ -22,6 +23,8 @@ uint8_t itrFlg = 0;
 
 uint8_t stat= 0x0;
 
+double* datArr;
+uint16_t indx = 0;
 
 void setup() 
 {
@@ -47,12 +50,12 @@ void loop()
       // - print data log and clear
       // - switch to verbose mode (display measurements)
       case 'a':
-        Serial.println("boop");
-        
+        Serial.println("STARTING DATA LOG");
+
         
         break;
       case 'b': 
-        Serial.println("supdawg");
+        Serial.println("ENDING DATA LOG");
         break;
       default :
         break;
@@ -73,32 +76,47 @@ void loop()
     }
     if((timeStamp %30 == 0)&& timeStamp > 0)
     {
+      
       //display data to port
-      DisAvgpDat(tot);
+      DisAvgDat(tot);
       tot = 0; // reset moving total
     }
     itrFlg = 0;
   }
 }
 
-void DisAvgpDat(uint16_t movTot)
-{
-  //variable declarations
-  uint16_t adcRaw;
-  double volt;
-  double movAvg;
-  //read voltage from ADC
 
-  movAvg = movTot/10;
+
+//prints out voltage value to Serial port
+void printVal(uint32_t tStamp, double adcVal)
+{
   
+  double volt;
   //calculate volatage from ADC value using overvoltage correction
-  volt = ((double)movAvg*ADCMAXLVL)/ADCRES; 
+  volt = ((double)adcVal*ADCMAXLVL)/ADCRES; 
+
 
   //print calculated voltage
   Serial.print("Time(s): \t");
-  Serial.print (timeStamp);
+  Serial.print (tStamp);
   Serial.print("\t Voltage(v): \t");
-  Serial.println(volt,3);  
+  Serial.println(volt,3); 
+}
+
+void DisAvgDat(uint16_t movTot)
+{
+  //variable declarations
+  uint16_t adcRaw;
+  double movAvg;
+
+  //calcualte average ADC measurement from moving total
+  movAvg = movTot/10;
+
+  //TODO: add case for displaying voltage or logging based off of state
+
+  //print out voltage value based off of moving average from ADC
+  printVal(timeStamp, movAvg);
+
 }
 
 uint16_t WindowTot(uint16_t movgTot)
@@ -107,14 +125,14 @@ uint16_t WindowTot(uint16_t movgTot)
   
   //read from ADC
   adcRaw = analogRead(VOLTREAD);
-
+  
   
   #ifdef DEBUG
   Serial.print("raw Value:");
   Serial.print(adcRaw);
   Serial.print("\t");
   #endif
-
+  
   //if this is the first value of the moving total replace the moving total with measurement else add to moving total
   if(movgTot == 0)
   {
@@ -150,7 +168,7 @@ ISR(TIMER1_OVF_vect)
   itrFlg = 1;
   
   #ifdef DEBUG
-  Serial.println(timeStamp %30);
+  Serial.println(timeStamp % 30);
   #endif
   
   //reset timer counter value so it counts from this number (used to ensure 1sec interrupts)
